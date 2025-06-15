@@ -1,0 +1,23 @@
+<!-- popup.html -->
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Quick Bookmark</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <form id="bookmark-form" autocomplete="off">
+      <label for="folder-select">Folder:</label>
+      <select id="folder-select"></select>
+      <div id="new-folder-container" style="display: none">
+        <input type="text" id="new-folder-name" placeholder="New folder name" />
+      </div>
+      <div class="actions">
+        <button type="submit" id="save-btn">Bookmark</button>
+        <button type="button" id="cancel-btn">Cancel</button>
+      </div>
+    </form>
+    <script src="popup.js"></script>
+  </body>
+</html>

@@ -1,0 +1,68 @@
+name: ChatGPT Comment Responder
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+
+jobs:
+  respond:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+
+    steps:
+      - name: Extract Comment
+        run: |
+          echo "${{ github.event.comment.body }}" > prompt.txt
+
+      - name: Skip if not a /chatgpt command
+        run: |
+          if ! echo "$(cat prompt.txt)" | grep -qE '^/chatgpt'; then
+            echo "Not a /chatgpt command. Exiting."
+            exit 0
+          fi
+
+      - name: Create OpenAI prompt
+        run: |
+          jq -n --arg prompt "$(cat prompt.txt)" ' {
+            model: "gpt-4o-mini",
+            temperature: 0.2,
+            messages: [
+              {
+                role: "system",
+                content: "You are ChatGPT responding to a code-related GitHub comment. Keep your response relevant, clear, and concise."
+              },
+              {
+                role: "user",
+                content: $prompt
+              }
+            ]
+          }' > payload.json
+
+      - name: Call OpenAI API
+        run: |
+          curl -s https://api.openai.com/v1/chat/completions \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer $OPENAI_API_KEY" \
+            -d @payload.json \
+            | jq -r '.choices[0].message.content' > response.md
+
+      - name: Post Response
+        run: |
+          gh api \
+            -X POST \
+            -H "Accept: application/vnd.github+json" \
+            /repos/${{ github.repository }}/issues/comments/${{ github.event.comment.id }}/replies \
+            -f body="$(cat response.md)"
+
+      - name: Clean up
+        run: |
+          rm prompt.txt
