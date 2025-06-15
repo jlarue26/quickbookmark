@@ -1,0 +1,60 @@
+name: ChatGPT Code Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Install jq
+        run: sudo apt-get install jq
+
+      - name: Get PR Diff
+        run: |
+          gh api repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/files -q '.[].patch' > diff.txt
+          head -c 10000 diff.txt > limited_diff.txt
+
+      - name: Generate Review with OpenAI
+        id: ai_review
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          DIFF=$(jq -Rs . < limited_diff.txt)
+
+          jq -n --arg diff "$DIFF" '{
+            model: "gpt-4o-mini",
+            temperature: 0.2,
+            messages: [
+              {
+                role: "system",
+                content: "You are an expert code reviewer. Provide a review with the following sections: Highlights, Suggestions, Security Issues, and Testing Notes. Format in markdown. When talking about specific code, indicate the file it is in, show the current code, and then show the proposed updated. At the end of your review, indicate that you provided the review and which model you used."
+              },
+              {
+                role: "user",
+                content: "Please review this code diff:\n\n\($diff)"
+              }
+            ]
+          }' > payload.json
+
+          curl -s https://api.openai.com/v1/chat/completions \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer $OPENAI_API_KEY" \
+            -d @payload.json \
+            | jq -r '.choices[0].message.content' > review.md
+
+      - name: Post Review to PR
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr comment ${{ github.event.pull_request.number }} --body-file review.md

@@ -1,0 +1,30 @@
+{
+  "manifest_version": 3,
+  "name": "Quick Bookmark Dialog",
+  "version": "1.0.0",
+  "description": "Quickly bookmark the current page with folder selection and creation.",
+  "permissions": [
+    "bookmarks",
+    "storage",
+    "activeTab",
+    "scripting"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Quick Bookmark"
+  },
+  "commands": {
+    "open-bookmark-dialog": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+D"
+      },
+      "description": "Open the quick bookmark dialog"
+    }
+  },
+  "icons": {
+    "128": "icons/icon128.png"
+  }
+}
